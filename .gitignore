@@ -2,3 +2,6 @@ data
 data_webb.zip
 word_embedding
 NMT.ckpt.data-00000-of-00001
+NMT.ckpt.index
+NMT.ckpt.meta
+checkpoint
