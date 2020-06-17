@@ -400,9 +400,10 @@ checkpoint = "NMT.ckpt"
 
 # Reset the default graph
 # tf.reset_default_graph()
-#tf.compat.v1.reset_default_graph
+# tf.compat.v1.reset_default_graph
 sess = tf.compat.v1.Session()
 graph = tf.compat.v1.get_default_graph()
+
 
 def pre(w):
     w = w.lower()
@@ -412,16 +413,18 @@ def pre(w):
     w = w.strip()
     return w
 
+
 with sess.as_default():
     with graph.as_default():
-    # Load saved model
-    # Use Seq2SeqModel to create the same graph as saved model
+        # Load saved model
+        # Use Seq2SeqModel to create the same graph as saved model
         loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
-                                word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+                                    word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
 
     # Load the value of variables in saved model
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
         saver.restore(sess, checkpoint)
+
 
 def predict(inputSeq):
     #inputSeq = []
@@ -434,8 +437,8 @@ def predict(inputSeq):
         with graph.as_default():
             # Load saved model
             # Use Seq2SeqModel to create the same graph as saved model
-            #loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
-                                        #word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+            # loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
+            # word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
 
             # Load the value of variables in saved model
             #saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
@@ -531,7 +534,7 @@ def translate():
         return jsonify({'output': output}), 200
 
 
-app.run("localhost", "9999", debug=True)
-#if __name__ == '__main__':
-# app.debug=True
-#app.run()
+#app.run("localhost", "9999", debug=True)
+if __name__ == '__main__':
+    # app.debug=True
+    app.run()
