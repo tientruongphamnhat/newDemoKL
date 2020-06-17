@@ -18,7 +18,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-nltk.download('punkt')
+# nltk.download('punkt')
 
 # Set paths
 #train_english_path = "data/train-en-vi/train.en"
@@ -400,8 +400,9 @@ checkpoint = "NMT.ckpt"
 
 # Reset the default graph
 # tf.reset_default_graph()
-tf.compat.v1.reset_default_graph
-
+#tf.compat.v1.reset_default_graph
+sess = tf.compat.v1.Session()
+graph = tf.compat.v1.get_default_graph()
 
 def pre(w):
     w = w.lower()
@@ -411,6 +412,16 @@ def pre(w):
     w = w.strip()
     return w
 
+with sess.as_default():
+    with graph.as_default():
+    # Load saved model
+    # Use Seq2SeqModel to create the same graph as saved model
+        loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
+                                word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+
+    # Load the value of variables in saved model
+        saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
+        saver.restore(sess, checkpoint)
 
 def predict(inputSeq):
     #inputSeq = []
@@ -419,52 +430,53 @@ def predict(inputSeq):
     # Get the sequence of int value
     input_intSeq = get_intSeq_english(inputSeq, english_max_len, padding=True)
 
-    with tf.Session() as sess:
-        # Load saved model
-        # Use Seq2SeqModel to create the same graph as saved model
-        loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
-                                    word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+    with sess.as_default():
+        with graph.as_default():
+            # Load saved model
+            # Use Seq2SeqModel to create the same graph as saved model
+            #loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
+                                        #word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
 
-        # Load the value of variables in saved model
-        saver = tf.train.Saver(tf.global_variables())
-        saver.restore(sess, checkpoint)
+            # Load the value of variables in saved model
+            #saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
+            #saver.restore(sess, checkpoint)
 
-        # convert
-        input_data = np.array(input_intSeq)
+            # convert
+            input_data = np.array(input_intSeq)
 
-        # The actual length of each sequence in the batch (excluding "<pad>")
-        real_len = list(map(lambda seq: len(
-            [word_int for word_int in seq if word_int != 0]), input_data))
+            # The actual length of each sequence in the batch (excluding "<pad>")
+            real_len = list(map(lambda seq: len(
+                [word_int for word_int in seq if word_int != 0]), input_data))
 
-        # Create a feed_dict for predict data
-        valid_feed_dict = {
-            loaded_model.batch_size: len(input_data),
-            loaded_model.inputSeq: input_data,
-            loaded_model.inputSeq_len: real_len,
-        }
-        # print(len(input_data))
-        # print(input_data)
-        # print(real_len)
+            # Create a feed_dict for predict data
+            valid_feed_dict = {
+                loaded_model.batch_size: len(input_data),
+                loaded_model.inputSeq: input_data,
+                loaded_model.inputSeq_len: real_len,
+            }
+            # print(len(input_data))
+            # print(input_data)
+            # print(real_len)
 
-        # Get the decoder output by Inference
-        decoder_outputs = sess.run(
-            loaded_model.decoder_outputs, feed_dict=valid_feed_dict)
+            # Get the decoder output by Inference
+            decoder_outputs = sess.run(
+                loaded_model.decoder_outputs, feed_dict=valid_feed_dict)
 
-        # Convert from sequence of int to actual sentence
-        output_titles = []
-        # Loop through each seq in decoder_outputs
-        for out_seq in decoder_outputs:
-            out_sent = list()
-            for word_int in out_seq:
-                # Convert int to word
-                word = int2word_vietnamese[word_int]
-                # Stop converting when it reach to the end of ouput sentence
-                if word == "</s>":
-                    break
-                else:
-                    out_sent.append(word)
-            # Combine list of word to sentence and add this sentence to output_titles
-            output_titles.append(" ".join(out_sent))
+            # Convert from sequence of int to actual sentence
+            output_titles = []
+            # Loop through each seq in decoder_outputs
+            for out_seq in decoder_outputs:
+                out_sent = list()
+                for word_int in out_seq:
+                    # Convert int to word
+                    word = int2word_vietnamese[word_int]
+                    # Stop converting when it reach to the end of ouput sentence
+                    if word == "</s>":
+                        break
+                    else:
+                        out_sent.append(word)
+                # Combine list of word to sentence and add this sentence to output_titles
+                output_titles.append(" ".join(out_sent))
     return output_titles
 
 
@@ -520,6 +532,6 @@ def translate():
 
 
 app.run("localhost", "9999", debug=True)
-# if __name__ == '__main__':
+#if __name__ == '__main__':
 # app.debug=True
-#app.run(host='0.0.0.0', port=80)
+#app.run()
