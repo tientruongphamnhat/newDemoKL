@@ -1,10 +1,12 @@
-import nltk
-from nltk import word_tokenize
-import collections
-import pickle
-import math
 import time
+import math
+import pickle
+import collections
+from nltk import word_tokenize
+import nltk
+# nltk.download('punkt')
 import argparse
+
 import tensorflow as tf
 from tensorflow.contrib import rnn
 import re
@@ -12,17 +14,26 @@ import numpy as np
 from gensim.models import KeyedVectors
 from sklearn.decomposition import PCA
 from matplotlib import pyplot
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app)
+# argument
+args = argparse.ArgumentParser()
+args.add_argument("--language_src")
+args.add_argument("--language_targ")
+args.add_argument("--vocab_src")
+args.add_argument("--vocab_targ")
+args.add_argument("--word_emb_src")
+args.add_argument("--word_emb_targ")
+args.add_argument("--num_layers")
+args.add_argument("--num_hiddens")
+args.add_argument("--learning_rate")
+args.add_argument("--keep_prob")
+args.add_argument("--beam_width")
+args.add_argument("--batch_size")
+args.add_argument("--checkpoint")
 
-# nltk.download('punkt')
+args = vars(args.parse_args())
 
 # Set paths
-#train_english_path = "data/train-en-vi/train.en"
-#train_vietnamese_path = "data/train-en-vi/train.vi"
 word2int_english_path = "vocab_english/word2int.pickle"
 int2word_english_path = "vocab_english/int2word.pickle"
 word2int_vietnamese_path = "vocab_vietnamese/word2int.pickle"
@@ -387,7 +398,6 @@ class Seq2SeqModel(object):
                     gradients_clipping, global_step=self.global_step)
 
 
-# define hyparamater
 params = dict()
 params['num_layers'] = 1
 params['num_hiddens'] = 512
@@ -399,10 +409,7 @@ params['beam_width'] = 10
 checkpoint = "NMT.ckpt"
 
 # Reset the default graph
-# tf.reset_default_graph()
-# tf.compat.v1.reset_default_graph
-sess = tf.compat.v1.Session()
-graph = tf.compat.v1.get_default_graph()
+tf.reset_default_graph()
 
 
 def pre(w):
@@ -414,127 +421,57 @@ def pre(w):
     return w
 
 
-with sess.as_default():
-    with graph.as_default():
-        # Load saved model
-        # Use Seq2SeqModel to create the same graph as saved model
-        loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
-                                    word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+# with open("data/test-2013-en-vi/tst2013.en", 'r', encoding='utf-8') as f:
+    #inputSeq = f.read().split('\n')
+
+inputSeq = []
+inputSeq.append('i go to school')
+
+# Get the sequence of int value
+input_intSeq = get_intSeq_english(inputSeq, english_max_len, padding=True)
+
+with tf.Session() as sess:
+    # Load saved model
+    # Use Seq2SeqModel to create the same graph as saved model
+    loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
+                                word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
 
     # Load the value of variables in saved model
-        saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
-        saver.restore(sess, checkpoint)
+    saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
+    saver.restore(sess, checkpoint)
 
+    # convert
+    input_data = np.array(input_intSeq)
 
-def predict(inputSeq):
-    #inputSeq = []
-    #inputSeq.append('i go to school')
+    # The actual length of each sequence in the batch (excluding "<pad>")
+    real_len = list(map(lambda seq: len(
+        [word_int for word_int in seq if word_int != 0]), input_data))
 
-    # Get the sequence of int value
-    input_intSeq = get_intSeq_english(inputSeq, english_max_len, padding=True)
+    # Create a feed_dict for predict data
+    valid_feed_dict = {
+        loaded_model.batch_size: len(input_data),
+        loaded_model.inputSeq: input_data,
+        loaded_model.inputSeq_len: real_len,
+    }
 
-    with sess.as_default():
-        with graph.as_default():
-            # Load saved model
-            # Use Seq2SeqModel to create the same graph as saved model
-            # loaded_model = Seq2SeqModel(len(int2word_english), len(int2word_vietnamese), word_embed_english,
-            # word_embed_vietnamese, english_max_len, vietnamese_max_len, params, train=False)
+    # Get the decoder output by Inference
+    decoder_outputs = sess.run(
+        loaded_model.decoder_outputs, feed_dict=valid_feed_dict)
 
-            # Load the value of variables in saved model
-            #saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
-            #saver.restore(sess, checkpoint)
+    # Convert from sequence of int to actual sentence
+    output_titles = []
+    # Loop through each seq in decoder_outputs
+    for out_seq in decoder_outputs:
+        out_sent = list()
+        for word_int in out_seq:
+            # Convert int to word
+            word = int2word_vietnamese[word_int]
+            # Stop converting when it reach to the end of ouput sentence
+            if word == "</s>":
+                break
+            else:
+                out_sent.append(word)
+        # Combine list of word to sentence and add this sentence to output_titles
+        output_titles.append(" ".join(out_sent))
 
-            # convert
-            input_data = np.array(input_intSeq)
-
-            # The actual length of each sequence in the batch (excluding "<pad>")
-            real_len = list(map(lambda seq: len(
-                [word_int for word_int in seq if word_int != 0]), input_data))
-
-            # Create a feed_dict for predict data
-            valid_feed_dict = {
-                loaded_model.batch_size: len(input_data),
-                loaded_model.inputSeq: input_data,
-                loaded_model.inputSeq_len: real_len,
-            }
-            # print(len(input_data))
-            # print(input_data)
-            # print(real_len)
-
-            # Get the decoder output by Inference
-            decoder_outputs = sess.run(
-                loaded_model.decoder_outputs, feed_dict=valid_feed_dict)
-
-            # Convert from sequence of int to actual sentence
-            output_titles = []
-            # Loop through each seq in decoder_outputs
-            for out_seq in decoder_outputs:
-                out_sent = list()
-                for word_int in out_seq:
-                    # Convert int to word
-                    word = int2word_vietnamese[word_int]
-                    # Stop converting when it reach to the end of ouput sentence
-                    if word == "</s>":
-                        break
-                    else:
-                        out_sent.append(word)
-                # Combine list of word to sentence and add this sentence to output_titles
-                output_titles.append(" ".join(out_sent))
-    return output_titles
-
-
-@app.route('/')
-def show_predict_stock_form():
-    # return render_template('predictorform.html')
-    # return render_template('try.html')
-    return "API Model Dich May Tu Tieng Anh Sang Tieng Viet"
-
-
-@app.route('/translate', methods=['POST'])
-def translate():
-    if request.method == 'POST':
-        if request.json.get('input') == '':
-            return jsonify({'message': 'input is null'}), 400
-        else:
-            input = (request.json.get('input')).strip()
-
-            inputArray = []
-            index = 0
-            temp = 0
-            lenInput = len(input)
-            outputArray = []
-            output = ''
-            while index < lenInput:
-                if(input[index] == '.' or input[index] == '?' or input[index] == '!'):
-                    strTemp = input[temp: index + 1]
-                    strTemp = strTemp.strip()
-                    inputArray.append(strTemp)
-                    temp = index + 1
-                    index += 1
-                    continue
-                if(index == lenInput-1):
-                    strTemp = input[temp: index + 1]
-                    strTemp = strTemp.strip()
-                    inputArray.append(strTemp)
-                index += 1
-
-            print(inputArray)
-
-            # with sess.as_default():
-            # with graph.as_default():
-            # for i in inputArray:
-            #output += (predict(i).replace('<end>', ""))
-
-            outputArray = predict(inputArray)
-            #output.replace('  ', ' ')
-            #output.replace(' ?', '?')
-            #output.replace(' .', '.')
-            output = output.join(outputArray)
-            print(output)
-        return jsonify({'output': output}), 200
-
-
-#app.run("localhost", "9999", debug=True)
-if __name__ == '__main__':
-    # app.debug=True
-    app.run()
+print(output_titles)
