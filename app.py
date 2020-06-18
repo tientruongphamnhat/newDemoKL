@@ -18,7 +18,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# nltk.download('punkt')
+nltk.download('punkt')
 
 # Set paths
 #train_english_path = "data/train-en-vi/train.en"
