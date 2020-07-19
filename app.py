@@ -21,7 +21,7 @@ model = kenlm.Model('vietnamese_wiki_3-gram.binary')
 app = Flask(__name__)
 CORS(app)
 
-nltk.download('punkt')
+# nltk.download('punkt')
 
 # Set paths
 #train_english_path = "data/train-en-vi/train.en"
@@ -579,9 +579,11 @@ with sess.as_default():
 
 
 def getSeq(dic):
+    if(len(dic) == 0):
+        return
     index = 0
     maxL = model.score(dic[0])
-    for i in range(1, 10):
+    for i in range(1, len(dic)):
         temp = model.score(dic[i])
         if maxL < temp:
             maxL = temp
@@ -646,7 +648,7 @@ def predict(inputSeq):
             listOutput = []
             # Using model language_moel
             for listSeq in listOut:
-                listOutput.append(listSeq)
+                listOutput.append(getSeq(listSeq))
     return listOutput
 
 
@@ -696,8 +698,10 @@ def translate():
             #output.replace('  ', ' ')
             #output.replace(' ?', '?')
             #output.replace(' .', '.')
+            print(outputArray)
             output = output.join(outputArray)
-            print(output)
+
+            # print(output)
         return jsonify({'output': output}), 200
 
 
