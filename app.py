@@ -561,7 +561,7 @@ def pre(w):
     w = w.lower()
     w = re.sub(r"([?.!,¿])", r" \1 ", w)
     w = re.sub(r'[" "]+', " ", w)
-    #w = re.sub(r"[^a-zA-Z?.!,¿]+", " ", w)
+    w = re.sub(r"[^a-zA-Z?.!,¿]+", " ", w)
     w = w.strip()
     return w
 
@@ -646,9 +646,12 @@ def predict(inputSeq):
                 listOut.append(listSeq)
 
             listOutput = []
+            print(listOut)
+            print('listOut*****************************')
             # Using model language_moel
             for listSeq in listOut:
                 listOutput.append(getSeq(listSeq))
+    print(listOutput)
     return listOutput
 
 
@@ -665,41 +668,15 @@ def translate():
         if request.json.get('input') == '':
             return jsonify({'message': 'input is null'}), 400
         else:
-            input = (request.json.get('input')).strip()
-
-            inputArray = []
-            index = 0
-            temp = 0
-            lenInput = len(input)
-            outputArray = []
-            output = ''
-            while index < lenInput:
-                if(input[index] == '.' or input[index] == '?' or input[index] == '!'):
-                    strTemp = input[temp: index + 1]
-                    strTemp = strTemp.strip()
-                    inputArray.append(strTemp)
-                    temp = index + 1
-                    index += 1
-                    continue
-                if(index == lenInput-1):
-                    strTemp = input[temp: index + 1]
-                    strTemp = strTemp.strip()
-                    inputArray.append(strTemp)
-                index += 1
-
-            print(inputArray)
-
+            input = pre((request.json.get('input')).strip())
             # with sess.as_default():
             # with graph.as_default():
-            # for i in inputArray:
-            #output += (predict(i).replace('<end>', ""))
 
+            inputArray = nltk.sent_tokenize(
+                ' '.join(nltk.word_tokenize(input)).lower())
             outputArray = predict(inputArray)
-            #output.replace('  ', ' ')
-            #output.replace(' ?', '?')
-            #output.replace(' .', '.')
             print(outputArray)
-            output = output.join(outputArray)
+            output = str(" ").join(outputArray)
 
             # print(output)
         return jsonify({'output': output}), 200
